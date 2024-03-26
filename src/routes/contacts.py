@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
-from datetime import date, timedelta
 from src.database.db import get_db
 from src.repository import contacts as repositories_contacts
 from src.schemas.contact import ContactSchema, ContactUpdate, ContactResponse
@@ -10,12 +9,10 @@ router = APIRouter(prefix='/contacts', tags=['contacts'])
 
 
 @router.get("/search", response_model=List[ContactResponse])
-async def search_contacts_by(limit: int = Query(10, ge=10, le=500), offset: int = Query(0, ge=0),
-                             first_name: Optional[str] = Query(None),
+async def search_contacts_by(first_name: Optional[str] = Query(None),
                              last_name: Optional[str] = Query(None),
                              email: Optional[str] = Query(None),
                              db: AsyncSession = Depends(get_db)):
-
     if not any([first_name, last_name, email]):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="At least one of 'first_name', 'last_name' or 'email' parameters must be provided")
@@ -25,8 +22,9 @@ async def search_contacts_by(limit: int = Query(10, ge=10, le=500), offset: int 
 
 
 @router.get("/birthdays", response_model=List[ContactResponse])
-async def get_upcoming_birthdays(db: AsyncSession = Depends(get_db)):
-    contacts = await repositories_contacts.get_contacts_with_birthdays(db)
+async def get_users_birth(limit: int = Query(7, ge=7, le=100),
+                          db: AsyncSession = Depends(get_db)):
+    contacts = await repositories_contacts.get_contacts_with_birthdays(limit, db)
     return contacts
 
 

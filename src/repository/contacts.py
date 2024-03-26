@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional
-from sqlalchemy import select, or_, func, extract
+from sqlalchemy import select, or_, and_, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.entity.models import Contact
 from src.schemas.contact import ContactSchema, ContactUpdate
@@ -15,18 +15,29 @@ async def search_contacts_by(db: AsyncSession, first_name: Optional[str] = None,
     return contacts.scalars().all()
 
 
-async def get_contacts_with_birthdays(db: AsyncSession):
+async def get_contacts_with_birthdays(limit: int, db: AsyncSession):
     current_date = datetime.now().date()
-    seven_days_ahead = current_date + timedelta(days=7)
-    seven_days_ahead_day = func.extract('day', seven_days_ahead)
-    seven_days_ahead_month = func.extract('month', seven_days_ahead)
-    current_day = func.extract('day', current_date)
-    current_month = func.extract('month', current_date)
-    stmt = select(Contact).filter(
-        extract('month', Contact.birthday).between(current_month, seven_days_ahead_month) & (
-            extract('day', Contact.birthday).between(current_day, seven_days_ahead_day)))
-    contacts = await db.execute(stmt)
-    return contacts.scalars().all()
+    end_date = current_date + timedelta(days=limit)
+
+    search = select(Contact).filter(
+        or_(
+            and_(
+                extract('month', Contact.birthday) == current_date.month,
+                extract('day', Contact.birthday) >= current_date.day
+            ),
+            and_(
+                extract('month', Contact.birthday) == end_date.month,
+                extract('day', Contact.birthday) <= end_date.day
+            ),
+            and_(
+                extract('month', Contact.birthday) == (current_date.month + 1) % 12,
+                extract('day', Contact.birthday) <= end_date.day
+            )
+        )
+    )
+
+    result = await db.execute(search)
+    return result.scalars().all()
 
 
 async def get_contacts(limit: int, offset: int, db: AsyncSession):
