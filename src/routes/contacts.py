@@ -34,6 +34,7 @@ async def get_upcoming_birthdays(db: AsyncSession = Depends(get_db)):
 async def get_contacts(limit: int = Query(10, ge=10, le=500), offset: int = Query(0, ge=0),
                        db: AsyncSession = Depends(get_db)):
     contacts = await repositories_contacts.get_contacts(limit, offset, db)
+    print(type(contacts))
     return contacts
 
 
@@ -42,6 +43,7 @@ async def get_contact(contact_id: int, db: AsyncSession = Depends(get_db)):
     contact = await repositories_contacts.get_contact(contact_id, db)
     if not contact:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
+    print(type(contact))
     return contact
 
 

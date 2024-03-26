@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.entity.models import Contact
 from src.schemas.contact import ContactSchema, ContactUpdate
@@ -12,25 +12,27 @@ async def search_contacts_by(db: AsyncSession, first_name: Optional[str] = None,
     stmt = select(Contact).filter(
         or_(Contact.first_name == first_name, Contact.last_name == last_name, Contact.email == email))
     contacts = await db.execute(stmt)
-    return contacts
+    return contacts.scalars().all()
 
 
 async def get_contacts_with_birthdays(db: AsyncSession):
     current_date = datetime.now().date()
     seven_days_ahead = current_date + timedelta(days=7)
-    current_date_str = current_date.strftime("%d.%m")
-    seven_days_ahead_str = seven_days_ahead.strftime("%d.%m")
+    seven_days_ahead_day = func.extract('day', seven_days_ahead)
+    seven_days_ahead_month = func.extract('month', seven_days_ahead)
+    current_day = func.extract('day', current_date)
+    current_month = func.extract('month', current_date)
     stmt = select(Contact).filter(
-        func.str_to_date(Contact.birthday, "%d.%m.%Y").between(func.str_to_date(current_date_str, '%m-%d'),
-                                                               func.str_to_date(seven_days_ahead_str, '%m-%d')))
+        extract('month', Contact.birthday).between(current_month, seven_days_ahead_month) & (
+            extract('day', Contact.birthday).between(current_day, seven_days_ahead_day)))
     contacts = await db.execute(stmt)
-    return contacts
+    return contacts.scalars().all()
 
 
 async def get_contacts(limit: int, offset: int, db: AsyncSession):
     stmt = select(Contact).offset(offset).limit(limit)
     contacts = await db.execute(stmt)
-    return contacts
+    return contacts.scalars().all()
 
 
 async def get_contact(contact_id: int, db: AsyncSession):
